@@ -6,6 +6,9 @@ const bot = new Telegraf(process.env.TELEGRAM_BOT_API_KEY);
 
 let image_count = 1;
 let prompt = '';
+let promptObj = {
+    "query": "",
+};
 
 bot.start((ctx) => ctx.reply(`Welcome ${ctx.chat.first_name}\n\nI am a bot designed by Srihari S with the functionalities of Lexica. I can fetch images based on your prompts.`));
 
@@ -46,7 +49,43 @@ bot.command('generate', async(ctx) => {
     });
 });
 
-bot.command('help', (ctx) => ctx.replyWithMarkdownV2(`*Commands*\n\n/start: Start the bot\n/generate _prompt_: Generate an image based on the prompt\n/generate _n_ _prompt_: Generate n images based on the prompt\n/help: Get help`));
+bot.command('generatev2', async(ctx) => {
+    ctx.reply('Generating image...');
+    if(parseInt(ctx.message.text.split(' ')[1])!=NaN && parseInt(ctx.message.text.split(' ')[1])>0){
+        image_count = parseInt(ctx.message.text.split(' ')[1]);
+        promptObj.query = ctx.message.text.split(' ').slice(2).join(' ');
+    }
+    else if(parseInt(ctx.message.text.split(' ')[1])!=NaN && parseInt(ctx.message.text.split(' ')[1])<=0){
+        ctx.reply('Please enter a valid number of images to generate.');
+        return;
+    }
+    else{
+        image_count = 1;
+        promptObj.query = ctx.message.text.split(' ').slice(1).join(' ');
+    }
+    await axios.post(process.env.LEXICA_HACK_API_URL,promptObj).then((response) => {
+        if(response.data.length==0){
+            ctx.reply('Sorry, I could not generate an image for you. Please try again.');
+            return;
+        }
+        else if(image_count>response.data.length){
+            ctx.reply(`I can only generate ${response.data.images.length} images for you for this prompt.`);
+            image_count = response.data.images.length;
+            for(let i=0;i<image_count;i++){
+                ctx.replyWithPhoto(process.env.RESPONSE_IMAGE_URL+response.data[i]);
+            }
+            return;
+        }
+        for(let i=0;i<image_count;i++){
+            ctx.replyWithPhoto(process.env.RESPONSE_IMAGE_URL+response.data[i]);
+        }
+    }).catch((error) => {
+        console.log("error",error);
+        ctx.reply("error");
+    });
+});
+
+bot.command('help', (ctx) => ctx.replyWithMarkdownV2(`*Commands*\n\n/start: Start the bot\n/generate _prompt_: Generate an image based on the prompt\n/generate _n_ _prompt_: Generate n images based on the prompt\n/generatev2 _prompt_: Generate an image based on the prompt\n/generatev2 _n_ _prompt_: Generate n images based on the prompt\n/help: Get help`));
 
 
 // Launch the bot
